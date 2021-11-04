@@ -15,6 +15,7 @@ Application:
     - [ ./bin, ./bin ]
     - [ ./assets, ./assets ]
     - [ ./scripts, ./scripts ]
+    - [ ./documents, ./documents ]
 
 
 # Download Python/R (optional) and their dependencies to be deployed

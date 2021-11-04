@@ -119,11 +119,11 @@ def make_documents(input_path, ignis_id, is_draft=False):
 
 
                 fn1 = fout.joinpath(input_name+" Certificate.pdf")
-                fn2 = fout.joinpath(input_name+".pdf")
+                fn2 = fout.joinpath(input_name+" Report.pdf")
                 fn3 = fout.joinpath("FileReport.pdf")
 
-                shutil.copy2("live_document.pdf", fn1)
-                shutil.copy2("live_document_1_2.pdf", fn2)
+                shutil.copy2("live_document_1_2.pdf", fn1)
+                shutil.copy2("live_document.pdf", fn2)
 
                 if not is_draft:
                     word_text_replace("FileReport.docx",
