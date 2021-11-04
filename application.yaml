@@ -1,0 +1,26 @@
+# information for application name and launcher
+app-builder: 9fbb15e
+
+Application:
+
+  name: IgnisStamp
+  asciibanner: assets/banner.txt
+  icon: assets/IgnisStamp.svg.ico
+  installdir: '%localappdata%\Ignis\IgnisStamp'
+
+  # After installation
+  pause: 1
+
+  programdata:
+    - [ ./bin, ./bin ]
+    - [ ./assets, ./assets ]
+    - [ ./scripts, ./scripts ]
+
+
+# Download Python/R (optional) and their dependencies to be deployed
+Dependencies:
+  python:
+    - pypdftk==0.5
+    - cairosvg
+    - docx2pdf
+    - locate
