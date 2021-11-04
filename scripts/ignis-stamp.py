@@ -120,7 +120,7 @@ def make_documents(input_path, ignis_id, is_draft=False):
 
                 fn1 = fout.joinpath(input_name+" Certificate.pdf")
                 fn2 = fout.joinpath(input_name+" Report.pdf")
-                fn3 = fout.joinpath("FileReport.pdf")
+                fn3 = fout.joinpath(input_name+" File Listing.pdf")
 
                 shutil.copy2("live_document_1_2.pdf", fn1)
                 shutil.copy2("live_document.pdf", fn2)
@@ -162,8 +162,8 @@ if __name__ == "__main__":
     if os.path.splitext(fname.name)[0].lower().endswith("draft"):
         is_draft = True
 
-    uid = "-".join(str(uuid.uuid4()).split("-")[:2])
-    id = datetime.now().strftime(f"Ignis Certificate # {uid} %Y-%m-%d %H:%M")
+    uid = "-".join(str(uuid.uuid4()).split("-")[:1])
+    id = datetime.now().strftime(f"Ignis Certificate ID {uid.upper()}.%Y.%m.%d %H:%M")
 
     if ext == ".docx":
         with tempfile.TemporaryDirectory() as fdir:
