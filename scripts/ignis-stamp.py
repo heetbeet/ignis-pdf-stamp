@@ -9,6 +9,7 @@ import hashlib
 from datetime import datetime
 from docx2pdf import convert
 import uuid
+import random
 
 this_dir = Path(__file__).resolve().parent
 
@@ -20,20 +21,15 @@ os.environ["PATH"] = f"{bin_dir.joinpath('pdftk')};{os.environ['PATH']}"
 import pypdftk
 from pypdftk import run_command, PDFTK_PATH
 
+temp_cache = Path(tempfile.gettempdir()).joinpath("ignis-pdf-cache")
 
-def safe_convert(wordfile, pdffile=None):
-    wordfile = Path(wordfile)
-    if pdffile is None:
-        pdffile = wordfile.parent.joinpath(os.path.splitext(wordfile.name)[0]+".pdf")
 
-    tmpname = f"file-{uuid.uuid4()}"
-    with tempfile.TemporaryDirectory() as tdir:
-        tdir = Path(tdir)
-        tf = tdir.joinpath(tmpname+".docx")
-        shutil.copy2(wordfile, tf)
-        convert(tf)
-
-        shutil.copy2(tdir.joinpath(tmpname+".pdf"), pdffile)
+def init_temp_cache():
+    os.makedirs(temp_cache, exist_ok=True)
+    keep = set(sorted([i for i in temp_cache.glob("*") if i.is_file()], key=os.path.getmtime)[-500:])
+    for i in temp_cache.glob("*"):
+        if i.is_file() and i not in keep:
+            os.remove(i)
 
 
 def hexhash(filename):
@@ -41,6 +37,29 @@ def hexhash(filename):
         bytes = f.read()  # read entire file as bytes
         readable_hash = hashlib.sha256(bytes).hexdigest()
         return(readable_hash)
+
+
+def safe_convert(wordfile, pdffile=None):
+    print(rf"Convert {wordfile}")
+
+    wordfile = Path(wordfile)
+    if pdffile is None:
+        pdffile = wordfile.parent.joinpath(os.path.splitext(wordfile.name)[0]+".pdf")
+
+    init_temp_cache()
+    cached = temp_cache.joinpath(hexhash(wordfile)+".pdf")
+    if cached.exists():
+        shutil.copy2(cached, pdffile)
+        return
+
+    tmpname = f"file-{uuid.uuid4()}"
+    with tempfile.TemporaryDirectory() as tdir:
+        tdir = Path(tdir)
+        tf = tdir.joinpath(tmpname+".docx")
+        shutil.copy2(wordfile, tf)
+        convert(tf)
+        shutil.copy2(tdir.joinpath(tmpname + ".pdf"), pdffile)
+        shutil.copy2(tdir.joinpath(tmpname + ".pdf"), cached)
 
 
 @contextmanager
@@ -107,7 +126,34 @@ def word_text_replace(wordfile, replacements, outfile=None):
         return outfile
 
 
-def make_documents(input_path, ignis_id, is_draft=False):
+def target_pdf_hash(pdfin, target, pdfout=None):
+    print(f"Forcing SHA-256 start byte as {target}")
+
+    pdfin = Path(pdfin)
+    if pdfout is None:
+        pdfout = pdfin
+    pdfout = Path(pdfout)
+
+    target = str(target)
+    with open(pdfin, "rb") as f:
+        txt_in = f.read()
+
+    txt_in = txt_in.rstrip(b"\r\n").rstrip(b"\n")
+    origin = hashlib.sha256()
+    origin.update(txt_in)
+    origin.digest()
+    while True:
+        seq = f"\n%{random.randint(1, 10000000)}\n".encode("utf-8")
+        a = origin.copy()
+        a.update(seq)
+        if a.digest().hex().startswith(target):
+            break
+
+    with open(pdfout, "wb") as f:
+        f.write(txt_in + seq)
+
+
+def make_documents(input_path, uid1, uid2, is_draft=False):
     input_path = Path(input_path).resolve()
     input_name = os.path.splitext(input_path.name)[0]
     
@@ -116,6 +162,7 @@ def make_documents(input_path, ignis_id, is_draft=False):
         with chdir(f):
             shutil.copy(input_path, "live_document.pdf")
 
+            ignis_id = datetime.now().strftime(f"Ignis Certificate ID {uid1}.{uid2} %Y-%m-%d %H:%M")
             word_text_replace("Watermark.docx", {"__id__": ignis_id})
             safe_convert("Watermark.docx")
 
@@ -136,6 +183,9 @@ def make_documents(input_path, ignis_id, is_draft=False):
                 fn2 = fout.joinpath(input_name+" Report.pdf")
                 fn3 = fout.joinpath(input_name+" File Listing.pdf")
 
+                target_pdf_hash("live_document_1_2.pdf", uid1)
+                target_pdf_hash("live_document.pdf", uid2)
+
                 shutil.copy2("live_document_1_2.pdf", fn1)
                 shutil.copy2("live_document.pdf", fn2)
 
@@ -145,10 +195,10 @@ def make_documents(input_path, ignis_id, is_draft=False):
                                        "__sha256_1__": hexhash(fn1),
                                        "__filename_2__": fn2.name,
                                        "__sha256_2__": hexhash(fn2)})
+
                     safe_convert("FileReport.docx")
                     stamp_and_replace("FileReport.pdf", "Watermark.pdf")
                     shutil.copy2("FileReport.pdf", fn3)
-
 
                 with chdir(fout):
                     files = list(Path(".").glob("*"))
@@ -175,8 +225,7 @@ if __name__ == "__main__":
     if os.path.splitext(fname.name)[0].lower().endswith("draft"):
         is_draft = True
 
-    uid = "-".join(str(uuid.uuid4()).split("-")[:1])
-    id = datetime.now().strftime(f"Ignis Certificate ID {uid.upper()}.%Y.%m.%d %H:%M")
+    uid1, uid2 = uuid.uuid4().hex[:2], uuid.uuid4().hex[:2]
 
     if ext == ".docx":
         with tempfile.TemporaryDirectory() as fdir:
@@ -185,7 +234,7 @@ if __name__ == "__main__":
             shutil.copy2(fname, fdocx)
 
             safe_convert(fdocx, fpdf)
-            outzip = make_documents(fpdf, id, is_draft=is_draft)
+            outzip = make_documents(fpdf, uid1, uid2, is_draft=is_draft)
             shutil.copy2(outzip, fname.parent.joinpath(outzip.name))
     else:
-        make_documents(sys.argv[1], id, is_draft=is_draft)
+        make_documents(sys.argv[1], uid1, uid2, is_draft=is_draft)
