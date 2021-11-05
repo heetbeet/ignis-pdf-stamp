@@ -21,6 +21,21 @@ import pypdftk
 from pypdftk import run_command, PDFTK_PATH
 
 
+def safe_convert(wordfile, pdffile=None):
+    wordfile = Path(wordfile)
+    if pdffile is None:
+        pdffile = wordfile.parent.joinpath(os.path.splitext(wordfile.name)[0]+".pdf")
+
+    tmpname = f"file-{uuid.uuid4()}"
+    with tempfile.TemporaryDirectory() as tdir:
+        tdir = Path(tdir)
+        tf = tdir.joinpath(tmpname+".docx")
+        shutil.copy2(wordfile, tf)
+        convert(tf)
+
+        shutil.copy2(tdir.joinpath(tmpname+".pdf"), pdffile)
+
+
 def hexhash(filename):
     with open(filename, "rb") as f:
         bytes = f.read()  # read entire file as bytes
@@ -77,13 +92,13 @@ def word_text_replace(wordfile, replacements, outfile=None):
 
         shutil.unpack_archive(wordtmp, f.joinpath("zip"), "zip")
 
-        with open(f.joinpath("zip", "word", "document.xml")) as fr:
+        with open(f.joinpath("zip", "word", "document.xml"), "rb") as fr:
             txt_in = fr.read()
 
         for i, j in replacements.items():
-            txt_in = txt_in.replace(i, j)
+            txt_in = txt_in.replace(i.encode("utf-8"), j.encode("utf-8"))
 
-        with open(f.joinpath("zip", "word", "document.xml"), "w") as fw:
+        with open(f.joinpath("zip", "word", "document.xml"), "wb") as fw:
             fw.write(txt_in)
 
         shutil.make_archive(f.joinpath("zip"), 'zip', f.joinpath("zip"))
@@ -102,7 +117,7 @@ def make_documents(input_path, ignis_id, is_draft=False):
             shutil.copy(input_path, "live_document.pdf")
 
             word_text_replace("Watermark.docx", {"__id__": ignis_id})
-            convert("Watermark.docx")
+            safe_convert("Watermark.docx")
 
             stamp_and_replace("live_document.pdf", "Watermark.pdf")
 
@@ -113,10 +128,9 @@ def make_documents(input_path, ignis_id, is_draft=False):
             with tempfile.TemporaryDirectory() as fout:
                 fout = Path(fout)
                 if is_draft:
-                    convert("DRAFT.docx")
+                    safe_convert("DRAFT.docx")
                     stamp_and_replace("live_document_1_2.pdf", "DRAFT.pdf")
                     stamp_and_replace("live_document.pdf", "DRAFT.pdf")
-
 
                 fn1 = fout.joinpath(input_name+" Certificate.pdf")
                 fn2 = fout.joinpath(input_name+" Report.pdf")
@@ -131,7 +145,7 @@ def make_documents(input_path, ignis_id, is_draft=False):
                                        "__sha256_1__": hexhash(fn1),
                                        "__filename_2__": fn2.name,
                                        "__sha256_2__": hexhash(fn2)})
-                    convert("FileReport.docx")
+                    safe_convert("FileReport.docx")
                     stamp_and_replace("FileReport.pdf", "Watermark.pdf")
                     shutil.copy2("FileReport.pdf", fn3)
 
@@ -152,7 +166,6 @@ def make_documents(input_path, ignis_id, is_draft=False):
 if __name__ == "__main__":
     fname = Path(sys.argv[1]).resolve()
 
-
     name, ext = os.path.splitext(fname.name)
     ext = ext.lower()
 
@@ -171,7 +184,7 @@ if __name__ == "__main__":
             fpdf = Path(fdir).joinpath(name+".pdf")
             shutil.copy2(fname, fdocx)
 
-            convert(fdocx, fpdf)
+            safe_convert(fdocx, fpdf)
             outzip = make_documents(fpdf, id, is_draft=is_draft)
             shutil.copy2(outzip, fname.parent.joinpath(outzip.name))
     else:
