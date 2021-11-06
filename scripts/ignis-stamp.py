@@ -153,7 +153,7 @@ def target_pdf_hash(pdfin, target, pdfout=None):
         f.write(txt_in + seq)
 
 
-def make_documents(input_path, uid1, uid2, is_draft=False):
+def make_documents(input_path, uid1, uid2, uid3, is_draft=False):
     input_path = Path(input_path).resolve()
     input_name = os.path.splitext(input_path.name)[0]
     
@@ -162,7 +162,7 @@ def make_documents(input_path, uid1, uid2, is_draft=False):
         with chdir(f):
             shutil.copy(input_path, "live_document.pdf")
 
-            ignis_id = datetime.now().strftime(f"Ignis Certificate ID {uid1}.{uid2} %Y-%m-%d %H:%M")
+            ignis_id = datetime.now().strftime(f"Ignis Certificate ID {uid1}.{uid2}.{uid3} %Y-%m-%d %H:%M")
             word_text_replace("Watermark.docx", {"__id__": ignis_id})
             safe_convert("Watermark.docx")
 
@@ -198,6 +198,7 @@ def make_documents(input_path, uid1, uid2, is_draft=False):
 
                     safe_convert("FileReport.docx")
                     stamp_and_replace("FileReport.pdf", "Watermark.pdf")
+                    target_pdf_hash("FileReport.pdf", uid3)
                     shutil.copy2("FileReport.pdf", fn3)
 
                 with chdir(fout):
@@ -225,7 +226,7 @@ if __name__ == "__main__":
     if os.path.splitext(fname.name)[0].lower().endswith("draft"):
         is_draft = True
 
-    uid1, uid2 = uuid.uuid4().hex[:2], uuid.uuid4().hex[:2]
+    uid1, uid2, uid3 = uuid.uuid4().hex[:2], uuid.uuid4().hex[:2], uuid.uuid4().hex[:2]
 
     if ext == ".docx":
         with tempfile.TemporaryDirectory() as fdir:
@@ -234,7 +235,7 @@ if __name__ == "__main__":
             shutil.copy2(fname, fdocx)
 
             safe_convert(fdocx, fpdf)
-            outzip = make_documents(fpdf, uid1, uid2, is_draft=is_draft)
+            outzip = make_documents(fpdf, uid1, uid2, uid3, is_draft=is_draft)
             shutil.copy2(outzip, fname.parent.joinpath(outzip.name))
     else:
-        make_documents(sys.argv[1], uid1, uid2, is_draft=is_draft)
+        make_documents(sys.argv[1], uid1, uid2, uid3, is_draft=is_draft)
