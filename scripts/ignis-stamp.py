@@ -145,7 +145,7 @@ def target_pdf_hash(pdfin, target, pdfout=None):
     origin.update(txt_in)
     origin.digest()
     for i in range(1,1000000000000):
-        seq = f"\n%{i}\n".encode("utf-8")
+        seq = f"\n%>>>IGNIS {i}<<<\n".encode("utf-8")
         a = origin.copy()
         a.update(seq)
         if a.digest().hex().startswith(target):
