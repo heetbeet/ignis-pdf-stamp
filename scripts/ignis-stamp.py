@@ -181,7 +181,7 @@ def make_documents(input_path, uid1, uid2, uid3, is_draft=False):
 
                 fn1 = fout.joinpath(input_name+" Certificate.pdf")
                 fn2 = fout.joinpath(input_name+" Report.pdf")
-                fn3 = fout.joinpath(input_name+" File Listing.pdf")
+                fn3 = fout.joinpath(input_name+" Verification.pdf")
 
                 target_pdf_hash("live_document_1_2.pdf", uid1)
                 target_pdf_hash("live_document.pdf", uid2)
@@ -226,7 +226,7 @@ if __name__ == "__main__":
     if os.path.splitext(fname.name)[0].lower().endswith("draft"):
         is_draft = True
 
-    uid1, uid2, uid3 = uuid.uuid4().hex[:2], uuid.uuid4().hex[:2], uuid.uuid4().hex[:2]
+    uid1, uid2, uid3 = (uuid.uuid4().hex[:2] for _ in range(3))
 
     if ext == ".docx":
         with tempfile.TemporaryDirectory() as fdir:
