@@ -10,6 +10,7 @@ from datetime import datetime
 from docx2pdf import convert
 import uuid
 import random
+import time
 
 this_dir = Path(__file__).resolve().parent
 
@@ -127,7 +128,8 @@ def word_text_replace(wordfile, replacements, outfile=None):
 
 
 def target_pdf_hash(pdfin, target, pdfout=None):
-    print(f"Forcing SHA-256 start byte as {target}")
+    print(f"Forcing SHA256 as {target}... ", end="", flush=True)
+    t1 = time.time()
 
     pdfin = Path(pdfin)
     if pdfout is None:
@@ -142,8 +144,8 @@ def target_pdf_hash(pdfin, target, pdfout=None):
     origin = hashlib.sha256()
     origin.update(txt_in)
     origin.digest()
-    while True:
-        seq = f"\n%{random.randint(1, 10000000)}\n".encode("utf-8")
+    for i in range(1,1000000000000):
+        seq = f"\n%{i}\n".encode("utf-8")
         a = origin.copy()
         a.update(seq)
         if a.digest().hex().startswith(target):
@@ -152,8 +154,9 @@ def target_pdf_hash(pdfin, target, pdfout=None):
     with open(pdfout, "wb") as f:
         f.write(txt_in + seq)
 
+    print(f"{time.time()-t1:.2f}s")
 
-def make_documents(input_path, uid1, uid2, uid3, is_draft=False):
+def make_documents(input_path, uid, is_draft=False):
     input_path = Path(input_path).resolve()
     input_name = os.path.splitext(input_path.name)[0]
     
@@ -162,7 +165,7 @@ def make_documents(input_path, uid1, uid2, uid3, is_draft=False):
         with chdir(f):
             shutil.copy(input_path, "live_document.pdf")
 
-            ignis_id = datetime.now().strftime(f"Ignis Certificate ID {uid1}.{uid2}.{uid3} %Y-%m-%d %H:%M")
+            ignis_id = datetime.now().strftime(f"Ignis Certificate ID {uid} %Y-%m-%d %H:%M")
             word_text_replace("Watermark.docx", {"__id__": ignis_id})
             safe_convert("Watermark.docx")
 
@@ -183,8 +186,8 @@ def make_documents(input_path, uid1, uid2, uid3, is_draft=False):
                 fn2 = fout.joinpath(input_name+" Report.pdf")
                 fn3 = fout.joinpath(input_name+" Verification.pdf")
 
-                target_pdf_hash("live_document_1_2.pdf", uid1)
-                target_pdf_hash("live_document.pdf", uid2)
+                target_pdf_hash("live_document_1_2.pdf", uid)
+                target_pdf_hash("live_document.pdf", uid)
 
                 shutil.copy2("live_document_1_2.pdf", fn1)
                 shutil.copy2("live_document.pdf", fn2)
@@ -198,7 +201,7 @@ def make_documents(input_path, uid1, uid2, uid3, is_draft=False):
 
                     safe_convert("FileReport.docx")
                     stamp_and_replace("FileReport.pdf", "Watermark.pdf")
-                    target_pdf_hash("FileReport.pdf", uid3)
+                    target_pdf_hash("FileReport.pdf", uid)
                     shutil.copy2("FileReport.pdf", fn3)
 
                 with chdir(fout):
@@ -226,7 +229,7 @@ if __name__ == "__main__":
     if os.path.splitext(fname.name)[0].lower().endswith("draft"):
         is_draft = True
 
-    uid1, uid2, uid3 = (uuid.uuid4().hex[:2] for _ in range(3))
+    uid = uuid.uuid4().hex[:5]
 
     if ext == ".docx":
         with tempfile.TemporaryDirectory() as fdir:
@@ -235,7 +238,7 @@ if __name__ == "__main__":
             shutil.copy2(fname, fdocx)
 
             safe_convert(fdocx, fpdf)
-            outzip = make_documents(fpdf, uid1, uid2, uid3, is_draft=is_draft)
+            outzip = make_documents(fpdf, uid, is_draft=is_draft)
             shutil.copy2(outzip, fname.parent.joinpath(outzip.name))
     else:
-        make_documents(sys.argv[1], uid1, uid2, uid3, is_draft=is_draft)
+        make_documents(sys.argv[1], uid, is_draft=is_draft)
