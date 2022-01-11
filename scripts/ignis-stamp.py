@@ -6,7 +6,7 @@ import tempfile
 import os
 from zipfile import ZipFile
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from docx2pdf import convert
 import uuid
 import random
@@ -178,6 +178,9 @@ def make_documents(input_path, uid, is_draft=False):
             with tempfile.TemporaryDirectory() as fout:
                 fout = Path(fout)
                 if is_draft:
+                    word_text_replace("DRAFT.docx",
+                                      {'__date__': (datetime.now()+timedelta(days=14)).strftime("%Y-%m-%d")})
+
                     safe_convert("DRAFT.docx")
                     stamp_and_replace("live_document_1_2.pdf", "DRAFT.pdf")
                     stamp_and_replace("live_document.pdf", "DRAFT.pdf")
